@@ -4,6 +4,17 @@ const tg = window.Telegram.WebApp;
 // Элемент для регистрации касаний
 const touchArea = document.getElementById('touch-area');
 
+// Счетчик касаний
+let touchCount = 0;
+const counter = document.createElement('div');
+counter.style.position = 'fixed';
+counter.style.top = '10px';
+counter.style.left = '10px';
+counter.style.color = 'white';
+counter.style.fontSize = '24px';
+counter.style.zIndex = '1000';
+document.body.appendChild(counter);
+
 // Обработчик клика и касаний
 function handleTouch(event) {
     // Получаем координаты
@@ -19,13 +30,13 @@ function handleTouch(event) {
     // Создаем квадратик
     const square = document.createElement('div');
     square.style.position = 'absolute';
-    square.style.left = `${x - 25}px`; // Центрируем квадратик
+    square.style.left = `${x - 25}px`;
     square.style.top = `${y - 25}px`;
     square.style.width = '50px';
     square.style.height = '50px';
-    square.style.backgroundColor = 'rgba(255, 0, 0, 0.5)'; // Полупрозрачный красный
-    square.style.borderRadius = '10px'; // Закругленные углы
-    square.style.transition = 'transform 0.2s, opacity 0.5s'; // Анимация
+    square.style.backgroundColor = `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, 0.5)`;
+    square.style.borderRadius = '10px';
+    square.style.transition = 'transform 0.2s, opacity 0.5s';
     touchArea.appendChild(square);
 
     // Анимация появления
@@ -41,8 +52,12 @@ function handleTouch(event) {
 
     // Вибрация (если поддерживается)
     if (navigator.vibrate) {
-        navigator.vibrate(50); // Вибрация на 50 мс
+        navigator.vibrate(50);
     }
+
+    // Обновляем счетчик
+    touchCount++;
+    counter.textContent = `Касаний: ${touchCount}`;
 
     // Отправляем данные боту через Telegram API
     tg.sendData(JSON.stringify({
