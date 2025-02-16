@@ -28,20 +28,26 @@
         }
         .touch-point {
             position: absolute;
-            width: 20px; /* Размер точки касания */
-            height: 20px;
-            border-radius: 50%; /* Круглая форма */
-            background-color: rgba(0, 122, 255, 0.7); /* Полупрозрачный синий */
-            transform: translate(-50%, -50%); /* Центрируем точку по координатам */
-            pointer-events: none; /* Точки не реагируют на события мыши/касаний */
-            transition: opacity 0.3s ease; /* Плавное исчезновение */
+            width: 10px;
+            height: 10px;
+            background-color: blue;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            /* Добавим плавное появление и исчезновение */
+            opacity: 0;
+            transition: opacity 0.2s ease;
         }
-        .other-user-touch {
-            background-color: rgba(255, 0, 0, 0.7); /* Красный для другого игрока */
+        /* Класс для точек, которые уже добавлены на экран */
+        .touch-point.visible {
+          opacity: 1;
         }
 
-        /* Стиль для сообщения о подключении */
-        #message {
+        .other-user-touch {  /* Этот класс пока не используется, но пригодится позже */
+            background-color: rgba(255, 0, 0, 0.7);
+        }
+
+        #message { /* Этот стиль тоже пока не используется */
             position: absolute;
             top: 10px;
             left: 50%;
@@ -50,128 +56,76 @@
             color: white;
             padding: 5px 10px;
             border-radius: 5px;
-            z-index: 1000; /* Поверх всего */
-            display: none; /* Скрыто по умолчанию */
+            z-index: 1000;
+            display: none;
         }
     </style>
 </head>
 <body>
-    <div id="message"></div>
+    <div id="message"></div>  <!-- Этот элемент пока не используется -->
     <div id="touch-area">
-        Ищем второго игрока...
+        Касайтесь экрана! <!-- Изменим начальный текст -->
     </div>
 
     <script>
         // Инициализация Telegram Web App
         const tg = window.Telegram.WebApp;
 
-        // Получаем элементы
+        // Получаем элемент для регистрации касаний
         const touchArea = document.getElementById('touch-area');
-        const messageElement = document.getElementById('message');
-
-        let otherUserId = null; // ID второго игрока
-        let gameStarted = false;
-
-        // Вспомогательная функция показа сообщения
-        function showMessage(text, duration = 3000) {  // Default duration 3 seconds
-           messageElement.textContent = text;
-           messageElement.style.display = 'block';
-           setTimeout(() => {
-             messageElement.style.display = 'none';
-           }, duration);
-        }
 
         // Функция для создания точки касания
-        function createTouchPoint(x, y, isOtherUser = false) {
+        function createTouchPoint(x, y) {
             const point = document.createElement('div');
             point.classList.add('touch-point');
-            if (isOtherUser) {
-                point.classList.add('other-user-touch');
-            }
             point.style.left = `${x}px`;
             point.style.top = `${y}px`;
             touchArea.appendChild(point);
 
-            // Удаляем точку через некоторое время (чтобы не засорять DOM)
-            setTimeout(() => {
-                point.style.opacity = 0; // плавное исчезновение
-                setTimeout(() => {  // удаляем после анимации
-                    point.remove();
-                }, 300);
+            // Добавляем класс для отображения точки (после добавления в DOM)
+            requestAnimationFrame(() => {
+               point.classList.add('visible');
+            });
 
-            }, 2000); // Точка видна 2 секунды
+            // Удаляем точку через некоторое время
+            setTimeout(() => {
+                point.style.opacity = '0'; // плавное исчезновение
+                point.addEventListener('transitionend', () => point.remove()); //Удаляем, как только исчезнет
+            }, 2000);
         }
 
         // Обработчик касаний
-        touchArea.addEventListener('click', (event) => {
-            if (!gameStarted) return; // Игра еще не началась, ничего не делаем
+        function handleTouch(event) {
+            event.preventDefault();
 
-            const x = event.clientX;
-            const y = event.clientY;
+            let x, y;
+            if (event.type === 'touchstart') {
+                if (event.touches.length > 0) {
+                    x = event.touches[0].clientX;
+                    y = event.touches[0].clientY;
+                } else {
+                    return;
+                }
+            } else {
+                x = event.clientX;
+                y = event.clientY;
+            }
 
-            createTouchPoint(x, y); // Создаем свою точку
-             // Вибрация (если поддерживается)
+            createTouchPoint(x, y);
+
             if (tg.HapticFeedback) {
                 tg.HapticFeedback.impactOccurred('medium');
             }
 
-            // Отправляем данные о касании боту
-            tg.sendData(JSON.stringify({ type: 'touch', x, y, otherUserId }));
-        });
+            tg.sendData(JSON.stringify({ type: 'touch', x, y }));
+        }
 
+        // Вешаем обработчики событий
+        touchArea.addEventListener('click', handleTouch);
+        touchArea.addEventListener('touchstart', handleTouch, { passive: false });
 
-
-        // Обработка данных, полученных от бота (через WebApp)
-        tg.onEvent('mainButtonClicked', () => {  //Имитация кнопки, которой нет
-           if (!gameStarted) {
-               tg.sendData(JSON.stringify({ type: 'ready' })); // Сообщаем боту о готовности
-               showMessage("Ищем второго игрока...")
-            }
-         });
-
-         if (tg.MainButton) {   //Проверка существования MainButton
-             tg.MainButton.text = "Начать игру";
-             tg.MainButton.show();
-         } else {
-            tg.onEvent('viewportChanged', () => {  // Имитация, если кнопки нет
-                if (!gameStarted) {
-                  tg.sendData(JSON.stringify({ type: 'ready' }));
-                  showMessage("Ищем второго игрока...");
-                }
-            });
-         }
-
-
-        // Обработка данных, полученных от бота (через WebApp)
-        tg.onEvent('web_app_data_received', (event) => {
-            const data = JSON.parse(event);
-
-            if (data.type === 'start') {
-                otherUserId = data.otherUserId;
-                gameStarted = true;
-                touchArea.textContent = ''; // Очищаем надпись
-                showMessage("Игра началась!");
-
-            } else if (data.type === 'touch' && data.userId !== tg.initDataUnsafe.user.id) { //Если касание не наше
-                // Отображаем касание другого игрока
-                createTouchPoint(data.x, data.y, true);
-                // Легкая вибрация, чтобы уведомить о касании другого игрока
-                if (tg.HapticFeedback) {
-                    tg.HapticFeedback.impactOccurred('light');
-                }
-            } else if (data.type === 'disconnect'){ //Если игрок отключился
-                showMessage("Второй игрок отключился.", 5000);
-                gameStarted = false;
-                otherUserId = null;
-                touchArea.textContent = 'Ищем второго игрока...';
-
-            }
-        });
-
-        // Показываем интерфейс мини-приложения
         tg.expand();
         tg.ready();
-
     </script>
 </body>
 </html>
