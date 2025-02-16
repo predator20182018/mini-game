@@ -7,5 +7,5 @@ class Connection(StatesGroup):
     waiting_for_partner_id = State()
     waiting_for_confirmation = State()
 
-class GameState(StatesGroup):
-    playing = State()  # Состояние игры
+class GameState(StatesGroup): # Добавили
+    playing = State()

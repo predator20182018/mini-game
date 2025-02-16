@@ -2,14 +2,14 @@ from aiogram import Router, F
 from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
-from .states import GameState
+from .states import GameState # добавили импорт
 from aiogram.types import WebAppData
 
 from . import commands
 from .states import Status, Connection
-from .keyboards import get_start_keyboard, get_main_keyboard  # Импортируем клавиатуры
+from .keyboards import get_start_keyboard, get_main_keyboard
 from .utils import is_admin
-from .commands import get_partner_id, bot  # Импортируем get_partner_id и bot
+from .commands import get_partner_id, bot  # Импортируем get_partner_id
 
 router = Router()
 
@@ -82,15 +82,15 @@ async def confirm_connection(callback_query: CallbackQuery, state: FSMContext) -
 async def reject_connection(callback_query: CallbackQuery, state: FSMContext) -> None:
     await commands.reject_connection(callback_query, state)
 
-@router.message(Command("quit"))  # Обработчик команды /quit
+@router.message(Command("quit"))
 async def quit_command_handler(message: Message, state: FSMContext) -> None:
     await commands.quit_connection(message, state)
 
-@router.message(F.content_type.in_(["pinned_message"]))  # Для закрепа сообщения
+@router.message(F.content_type.in_(["pinned_message"]))
 async def pinned_message_handler(message: Message) -> None:
     await commands.pinned_message(message)
 
-@router.message(F.text == "Мини-игра 🎮")
+@router.message(F.text == "Мини-игра 🎮") # Добавили
 async def start_mini_game(message: Message, state: FSMContext):
     """Обработчик для кнопки 'Мини-игра 🎮'."""
     user_id = message.from_user.id
@@ -100,14 +100,13 @@ async def start_mini_game(message: Message, state: FSMContext):
         await message.answer("Сначала соединитесь с партнером!")
         return
 
-    # Переводим пользователя в состояние игры
+    #  Переводим пользователя в состояние игры
     await state.set_state(GameState.playing)
     await message.answer(
         "Мини-игра началась! Касайтесь экрана, и ваш партнер увидит ваши касания.\n"
         "Чтобы выйти из игры, нажмите /quit_game."
     )
-
-@router.message(GameState.playing)
+@router.message(GameState.playing) # Добавили
 async def handle_touches(message: Message, state: FSMContext):
     user_id = message.from_user.id
     partner_id = get_partner_id(user_id)
@@ -116,14 +115,13 @@ async def handle_touches(message: Message, state: FSMContext):
         await message.answer("Игра завершена. Вы не соединены с партнером.")
         await state.clear()
         return
-
-    # Предположим, что сообщение содержит координаты касания (например, "x:100 y:200")
+    #  Предположим, что сообщение содержит координаты касания (например, "x:100 y:200")
     touch_data = message.text
 
     # Отправляем данные партнеру
     await bot.send_message(partner_id, f"Касание от партнера: {touch_data}")
 
-@router.message(Command("quit_game"))
+@router.message(Command("quit_game")) # Добавили
 async def quit_game(message: Message, state: FSMContext):
     """Обработчик команды /quit_game для выхода из мини-игры."""
     current_state = await state.get_state()
@@ -134,12 +132,11 @@ async def quit_game(message: Message, state: FSMContext):
         await state.clear()  # Очищаем состояние игры
     else:
         await message.answer("Вы не в игре. Начните игру, нажав 'Мини-игра 🎮'.")
-
 @router.message()
 async def handle_all_other_messages(message: Message) -> None:
     await commands.other_messages(message)
 
-@router.message(F.web_app_data)
+@router.message(F.web_app_data)  #  Добавили обработчик Web App Data
 async def handle_web_app_data(message: Message):
     """Обработчик данных от мини-приложения."""
     user_id = message.from_user.id
@@ -151,12 +148,5 @@ async def handle_web_app_data(message: Message):
 
     # Получаем данные от мини-приложения
     data = message.web_app_data.data
-    try:
-        touch_data = json.loads(data)  # Парсим JSON
-        x = touch_data.get('x')
-        y = touch_data.get('y')
-
-        # Отправляем данные партнеру
-        await bot.send_message(partner_id, f"Касание от партнера: x={x}, y={y}")
-    except Exception as e:
-        await message.answer(f"Ошибка при обработке данных: {e}")
+    # Отправляем данные партнеру
+    await bot.send_message(partner_id, f"Данные от партнера: {data}")

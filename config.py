@@ -5,6 +5,9 @@ import datetime
 load_dotenv()
 
 TOKEN = os.environ.get("TG_TOKEN")
+WEBAPP_HOST = "0.0.0.0"  # Слушаем на всех интерфейсах
+WEBAPP_PORT = int(os.environ.get("PORT", 8000))  # Порт (или из переменной окружения PORT)
+WEB_APP_URL = "http://localhost:8000/mini_game.html" # URL
 
 def get_admin_id() -> int | None:
     """Получает ID администратора из переменной окружения."""

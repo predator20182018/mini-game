@@ -5,21 +5,20 @@
   <style>
     body {
       margin: 0;
-      overflow: hidden;
+      overflow: hidden; /* Прячем прокрутку */
       font-family: sans-serif;
       background-color: #f0f0f0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      /* Убираем display: flex; и центрирование, т.к. Web App */
     }
 
+    /* Стили для контейнера счетчика (если нужен) */
     #counter-container {
-      position: absolute;
+      position: absolute; /* Абсолютное позиционирование */
       top: 10px;
       left: 10px;
       font-size: 24px;
       font-weight: bold;
-      z-index: 1;
+      z-index: 1;       /* Поверх кнопок */
       background-color: rgba(0, 0, 0, 0.7);
       color: white;
       padding: 5px 10px;
@@ -33,25 +32,28 @@
       gap: 1px; /* Минимальный зазор */
       width: fit-content;
       height: fit-content;
+      /* Убираем margin: auto;  */
     }
-
     button {
-      width: 20px; /* Уменьшаем размер */
-      height: 20px;
-      border: none;
-      background-color: #3498db;
-      cursor: pointer;
-      transition: transform 0.1s, background-color 0.2s;
+        width: 20px; /* Уменьшаем размер */
+        height: 20px;
+        border: none;
+        background-color: #3498db;
+        cursor: pointer;
+        transition: transform 0.1s, background-color 0.2s;
+        }
+      button.clicked { /* Добавляем класс для нажатых кнопок */
+          background-color: red; /* Красный цвет для нажатых */
     }
 
     button:hover {
       background-color: #2980b9;
     }
-
     button:active {
       background-color: #1f618d;
       transform: scale(0.95);
     }
+
   </style>
 </head>
 <body>
@@ -61,35 +63,116 @@
   </div>
 
   <div id="button-container">
-    <!-- Кнопки создаются в JavaScript -->
-  </div>
+    </div>
 
   <script>
     let counter = 0;
     const counterDisplay = document.getElementById('counter');
     const buttonContainer = document.getElementById('button-container');
     const buttonCount = 2500;
+    let lastUpdate = 0;  //  Время последнего обновления данных
+    let my_user_id = null; // ID текущего пользователя
+
+       //  Получаем user_id из параметров WebApp (если возможно)
+    try{
+        my_user_id = window.Telegram.WebApp.initDataUnsafe.user.id; // берем из веб-приложения
+    } catch(error){
+        console.log("Ошибка", error)
+        my_user_id = null;
+    }
+
 
     function updateCounter() {
       counterDisplay.textContent = counter;
     }
 
+
     function createButtons() {
       for (let i = 0; i < buttonCount; i++) {
         const button = document.createElement('button');
+        button.id = `button-${i}`;  //  Добавляем ID кнопке
+        button.dataset.index = i; // Для удобства
         buttonContainer.appendChild(button);
-      }
 
-       // Делегирование событий
-        buttonContainer.addEventListener('click', (event) => {
-           if(event.target.tagName === "BUTTON") {
-              counter++;
-              updateCounter();
-           }
-        });
+      }
+      buttonContainer.addEventListener('click', handleButtonClick);
     }
 
-    createButtons();
+
+      async function handleButtonClick(event) {
+        if (event.target.tagName === 'BUTTON') {
+            const buttonIndex = parseInt(event.target.dataset.index, 10); // Получаем индекс
+            const button = event.target;
+
+              //  Меняем цвет *локально*
+            button.classList.add('clicked');
+
+              //  Отправляем данные на сервер
+              try {
+                  const response = await fetch('/click', {  //  Изменили URL
+                      method: 'POST',
+                      headers: {
+                          'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                          user_id: my_user_id,  //  Отправляем user_id
+                          button_index: buttonIndex,
+                      }),
+                  });
+
+                  if (!response.ok) {
+                      const errorText = await response.text();
+                      throw new Error(`Server returned error: ${response.status} ${errorText}`);
+                  }
+
+                  const data = await response.json(); // Получаем ответ (напр. для проверки)
+                  // Можно как-то обработать ответ, если нужно
+                  console.log("Server response:", data);
+
+
+              } catch (error) {
+                  console.error("Error sending click data:", error);
+                   //  Возвращаем кнопке исходный цвет, если ошибка
+                  button.classList.remove('clicked');
+              }
+          }
+      }
+
+      async function getUpdates() {
+        try {
+            const response = await fetch(`/get_clicks?last_update=${lastUpdate}`);
+            if (!response.ok) {
+                throw new Error(`Server returned error: ${response.status}`);
+            }
+            const data = await response.json();
+
+            if (data.clicks && data.clicks.length > 0) {
+                data.clicks.forEach(click => {
+                    const button = document.getElementById(`button-${click.button_index}`);
+                    if (button && click.user_id !== my_user_id) { // Рисуем только чужие
+                        button.classList.add('clicked'); // Меняем цвет кнопки
+                    }
+
+                });
+                //  Обновляем время последнего обновления
+                if(data.clicks.length > 0){
+                   lastUpdate = data.clicks[data.clicks.length -1].timestamp;
+                }
+
+            }
+
+
+        } catch (error) {
+            console.error("Error fetching updates:", error);
+        }
+    }
+
+
+    createButtons();  //  Создаем кнопки
+
+    //  Периодически запрашиваем обновления
+    setInterval(getUpdates, 1000); // 1000 мс = 1 секунда (можно чаще)
+
   </script>
 
 </body>

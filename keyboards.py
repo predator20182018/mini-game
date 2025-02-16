@@ -1,9 +1,6 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
-from aiogram.types import WebAppInfo
-
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
 
 def create_confirmation_keyboard(user_id: int) -> InlineKeyboardMarkup:
-    """Создает клавиатуру для подтверждения соединения."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -14,21 +11,17 @@ def create_confirmation_keyboard(user_id: int) -> InlineKeyboardMarkup:
     )
 
 def get_start_keyboard() -> ReplyKeyboardMarkup:
-    """Создает стартовую клавиатуру (только с кнопкой соединения)."""
     return ReplyKeyboardMarkup(
         keyboard=[[KeyboardButton(text="💞 Соединиться с партнером 💞")]],
         resize_keyboard=True
     )
 
 def get_main_keyboard() -> ReplyKeyboardMarkup:
-    """Создает основную клавиатуру без кнопки 'Соединиться с партнером'."""
     keyboard = [
-        [KeyboardButton(text="Почему я тебя люблю?"), KeyboardButton(text="Приятность")],
+        [KeyboardButton(text="Почему я тебя люблю?")],
+        [KeyboardButton(text="Приятность")],
         [KeyboardButton(text="💋")],
         [KeyboardButton(text="Статус партнера")],
-        [KeyboardButton(
-            text="Мини-игра 🎮",
-            web_app=WebAppInfo(url="https://predator20182018.github.io/mini-game/mini_game.html")  # Укажите URL вашего мини-приложения
-        )],
+        [KeyboardButton(text="Мини-игра 🎮", web_app=WebAppInfo(url="YOUR_WEB_APP_URL"))],  #  Кнопка с WebApp
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
