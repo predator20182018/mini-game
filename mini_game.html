@@ -3,45 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Счетчик касаний</title>
+    <title>Счетчик касаний (10 кнопок)</title>
     <style>
         body, html {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
-            overflow: hidden; /* Скрываем прокрутку, если появится */
+            overflow: hidden;
             background-color: #f0f0f0;
             font-family: sans-serif;
-            user-select: none; /* Предотвращаем выделение текста */
+            user-select: none;
         }
 
-        #touch-area {
+        #button-container {
             width: 100%;
             height: 100%;
-            position: relative; /* Для абсолютного позиционирования */
-            display: flex; /* Для центрирования (не обязательно, но полезно) */
+            display: flex;
+            flex-wrap: wrap; /* Разрешаем перенос на новую строку */
+            justify-content: center; /* Центрируем по горизонтали */
+            align-items: center;     /* Центрируем по вертикали */
+            gap: 15px; /* Промежуток между кнопками (и строками) */
+        }
+
+        .my-button {
+            width: 60px;   /* Ширина кнопки */
+            height: 60px;  /* Высота кнопки */
+            background-color: red; /* Красный цвет */
+            color: white;       /* Белый цвет текста (если нужен) */
+            border: none;
+            border-radius: 10px; /* Скругленные углы */
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.2s, transform 0.1s; /* Анимации */
+             display: flex; /*Центрируем содержимое (если нужен текст)*/
             justify-content: center;
             align-items: center;
         }
 
-        .touch-indicator {
-            position: absolute; /* Абсолютное позиционирование */
-            width: 50px;
-            height: 50px;
-            background-color: rgba(0, 122, 255, 0.5); /* Полупрозрачный синий */
-            border-radius: 50%; /* Круглая форма */
-            transform: translate(-50%, -50%); /* Центрируем по координатам */
-            pointer-events: none; /* Не реагирует на события мыши */
-            opacity: 0; /* Начальная прозрачность */
-            transition: opacity 0.3s ease, transform 0.2s ease; /* Анимация */
+        .my-button:active {
+            background-color: #cc0000; /* Темно-красный при нажатии */
+            transform: scale(0.95);   /* Немного уменьшаем при нажатии */
         }
-        .touch-indicator.visible{
-             opacity: 1;
-             transform: translate(-50%, -50%) scale(1.2);
-        }
-
-        #touch-counter {
+        /* Счетчик */
+          #touch-counter {
             position: fixed;
             top: 10px;
             left: 10px;
@@ -53,15 +58,17 @@
             border-radius: 5px;
         }
 
+
     </style>
 </head>
 <body>
     <div id="touch-counter">Касаний: 0</div>
-    <div id="touch-area"></div>
+    <div id="button-container">
+        </div>
 
     <script>
-        const tg = window.Telegram.WebApp; // Инициализация Telegram WebApp
-        const touchArea = document.getElementById('touch-area');
+        const tg = window.Telegram.WebApp;
+        const buttonContainer = document.getElementById('button-container');
         const touchCounter = document.getElementById('touch-counter');
 
         let touchCount = 0;
@@ -70,47 +77,20 @@
             touchCounter.textContent = `Касаний: ${touchCount}`;
         }
 
-        function createTouchIndicator(x, y) {
-            const indicator = document.createElement('div');
-            indicator.classList.add('touch-indicator');
-            indicator.style.left = `${x}px`;
-            indicator.style.top = `${y}px`;
-             // Случайный цвет
-            indicator.style.backgroundColor = `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, 0.5)`;
-            touchArea.appendChild(indicator);
-
-              // Добавляем класс для отображения (после добавления в DOM)
-             requestAnimationFrame(() => {
-                indicator.classList.add('visible');
-             });
-
-            // Удаляем индикатор через некоторое время
-            setTimeout(() => {
-               indicator.style.opacity = 0;
-                indicator.addEventListener('transitionend', () => {
-                    indicator.remove();
-                });
-            }, 500); // Индикатор виден 0.5 секунды
+        // Создание 10 кнопок
+        function createButtons() {
+            for (let i = 0; i < 10; i++) {
+                const button = document.createElement('button');
+                button.classList.add('my-button');
+                // button.textContent = `${i + 1}`; // Можно добавить номера, если нужно
+                button.addEventListener('click', handleButtonClick);
+                 button.addEventListener('touchstart', handleButtonClick, { passive: false });
+                buttonContainer.appendChild(button);
+            }
         }
 
-
-        function handleTouch(event) {
+        function handleButtonClick(event) {
             event.preventDefault();
-
-            let x, y;
-            if (event.type === 'touchstart') {
-                if (event.touches.length > 0) {
-                    x = event.touches[0].clientX;
-                    y = event.touches[0].clientY;
-                } else {
-                    return;
-                }
-            } else {
-                x = event.clientX;
-                y = event.clientY;
-            }
-
-            createTouchIndicator(x, y);
 
             touchCount++;
             updateCounter();
@@ -118,36 +98,37 @@
             if (tg.HapticFeedback) {
                 tg.HapticFeedback.impactOccurred('medium');
             }
-
-            tg.sendData(JSON.stringify({ type: 'touch', x, y }));
+             // event.currentTarget - кнопка, на которую нажали
+            tg.sendData(JSON.stringify({ type: 'button_press', buttonIndex: Array.from(buttonContainer.children).indexOf(event.currentTarget) }));
         }
 
-        // Добавляем обработчик для сброса счетчика (по двойному клику/тапу)
-         let lastTap = 0;
-        touchArea.addEventListener('touchend', (event) => {
-             const currentTime = new Date().getTime();
-             const tapLength = currentTime - lastTap;
-             if (tapLength < 300 && tapLength > 0) {
+          // Сброс счетчика (по двойному тапу/клику на контейнере кнопок)
+        let lastTap = 0;
+        buttonContainer.addEventListener('touchend', (event) => {
+            const currentTime = new Date().getTime();
+            const tapLength = currentTime - lastTap;
+            if (tapLength < 300 && tapLength > 0) {
                 event.preventDefault();
-                touchCount = 0; // Сброс
+                touchCount = 0;
                 updateCounter();
-                if (tg.HapticFeedback) {
+                if(tg.HapticFeedback) {
                     tg.HapticFeedback.notificationOccurred('success');
                 }
-             }
-             lastTap = currentTime;
+            }
+            lastTap = currentTime;
         });
 
-        touchArea.addEventListener('dblclick', () => {
+         buttonContainer.addEventListener('dblclick', (event) => {
+            event.preventDefault();
             touchCount = 0;
             updateCounter();
-             if (tg.HapticFeedback) {
-                    tg.HapticFeedback.notificationOccurred('success');
-                }
+            if(tg.HapticFeedback) {
+                tg.HapticFeedback.notificationOccurred('success');
+            }
         });
 
-        touchArea.addEventListener('click', handleTouch);
-        touchArea.addEventListener('touchstart', handleTouch, { passive: false });
+
+        createButtons(); // Создаем кнопки
 
         tg.expand();
         tg.ready();
