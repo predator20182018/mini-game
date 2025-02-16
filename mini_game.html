@@ -14,7 +14,7 @@
             background-color: #f0f0f0;
             font-family: sans-serif;
         }
-        #touch-area { /* Этот div теперь служит контейнером */
+        #touch-area {
             width: 100%;
             height: 100%;
             position: relative; /* Важно для позиционирования */
@@ -22,23 +22,40 @@
             justify-content: center;
             align-items: center;
         }
-        #touch-button { /* Стиль для кнопки */
-            width: 80%;  /* Ширина кнопки */
-            height: 80%; /* Высота кнопки */
-            background-color: #4CAF50; /* Зеленый цвет */
+       #touch-button {
+            width: 80%;
+            height: 50px; /* Высота кнопки */
+            background-color: #4CAF50;
             color: white;
-            font-size: 24px;
+            font-size: 20px;
             border: none;
             border-radius: 10px;
-            cursor: pointer; /* Курсор-указатель */
+            cursor: pointer;
             display: flex;
             justify-content: center;
             align-items: center;
-            user-select: none;  /* Запрещаем выделение */
+            user-select: none;
+            margin-bottom: 20px; /* Отступ снизу */
         }
         #touch-button:active {
-            background-color: #367c39; /* Темно-зеленый при нажатии */
+            background-color: #367c39;
         }
+        .touch-point {
+            position: absolute;
+            width: 50px; /* Размер квадратика */
+            height: 50px;
+            background-color: rgba(0, 122, 255, 0.5);
+            border-radius: 10px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease, transform 0.2s ease;
+        }
+        .touch-point.visible {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1.2);
+        }
+
         /* Счетчик касаний */
         #touch-counter {
             position: fixed;
@@ -57,7 +74,7 @@
 <body>
     <div id="touch-counter">Касаний: 0</div>
     <div id="touch-area">
-        <button id="touch-button">Нажми меня!</button>
+         <button id="touch-button">Начать игру</button>
     </div>
 
     <script>
@@ -65,44 +82,93 @@
         const tg = window.Telegram.WebApp;
 
         // Получаем элементы
+        const touchArea = document.getElementById('touch-area');
         const touchButton = document.getElementById('touch-button');
         const touchCounter = document.getElementById('touch-counter');
 
         // Счетчик касаний
         let touchCount = 0;
+        let gameStarted = false; // Флаг, началась ли игра
+
+
+        // Функция для создания точки касания (квадратика)
+        function createTouchPoint(x, y) {
+            const point = document.createElement('div');
+            point.classList.add('touch-point');
+            point.style.left = `${x}px`;
+            point.style.top = `${y}px`;
+            // Случайный цвет
+            point.style.backgroundColor = `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, 0.5)`;
+            touchArea.appendChild(point);
+
+            requestAnimationFrame(() => {
+                point.classList.add('visible');
+            });
+
+            setTimeout(() => {
+                point.style.opacity = '0';
+                point.addEventListener('transitionend', () => point.remove());
+            }, 500);
+        }
 
         // Обновление счетчика
         function updateCounter() {
             touchCounter.textContent = `Касаний: ${touchCount}`;
         }
 
-        // Обработчик нажатия на кнопку
-        function handleButtonClick(event) {
+       // Обработчик нажатия на кнопку (для старта игры)
+        function handleStartButtonClick(event) {
             event.preventDefault();
+            gameStarted = true; // Устанавливаем флаг
+            touchButton.style.display = 'none'; // Скрываем кнопку
+            touchArea.style.backgroundColor = '#e0e0e0'; // Возвращаем фон
+            if(tg.HapticFeedback){
+              tg.HapticFeedback.impactOccurred('light');
+            }
+        }
+
+        // Обработчик касаний (для создания квадратиков)
+        function handleTouch(event) {
+          if(!gameStarted) return; // Не обрабатываем касания, если игра не началась
+
+            event.preventDefault();
+
+            let x, y;
+            if (event.type === 'touchstart') {
+                if (event.touches.length > 0) {
+                    x = event.touches[0].clientX;
+                    y = event.touches[0].clientY;
+                } else {
+                    return;
+                }
+            } else {
+                x = event.clientX;
+                y = event.clientY;
+            }
+
+            createTouchPoint(x, y);
 
             // Увеличиваем счетчик
             touchCount++;
             updateCounter();
 
-            // Вибрация
             if (tg.HapticFeedback) {
                 tg.HapticFeedback.impactOccurred('medium');
             }
 
-            // Отправляем данные боту
-            tg.sendData(JSON.stringify({ type: 'button_press' })); //Другой тип
+            tg.sendData(JSON.stringify({ type: 'touch', x, y }));
         }
 
-          // Добавляем обработчик для сброса счетчика (по двойному клику/тапу)
+        // Добавляем обработчик для сброса счетчика (по двойному клику/тапу)
         let lastTap = 0;
-        touchButton.addEventListener('touchend', (event) => {
+        touchArea.addEventListener('touchend', (event) => { //Сбрасываем по двойному тапу на области
+            if (!gameStarted) return; //только если игра началась
             const currentTime = new Date().getTime();
             const tapLength = currentTime - lastTap;
             if (tapLength < 300 && tapLength > 0) {
                 event.preventDefault();
                 touchCount = 0;
                 updateCounter();
-
                 if (tg.HapticFeedback) {
                     tg.HapticFeedback.notificationOccurred('success');
                 }
@@ -110,7 +176,8 @@
             lastTap = currentTime;
         });
 
-        touchButton.addEventListener('dblclick', () => {
+        touchArea.addEventListener('dblclick', () => {  //И на пк
+           if (!gameStarted) return;
             touchCount = 0;
             updateCounter();
             if (tg.HapticFeedback) {
@@ -118,10 +185,13 @@
                 }
         });
 
-        // Вешаем обработчики событий *на кнопку*
-        touchButton.addEventListener('click', handleButtonClick);
-        touchButton.addEventListener('touchstart', handleButtonClick, { passive: false });
 
+        // Вешаем обработчики событий
+        touchButton.addEventListener('click', handleStartButtonClick); //Для кнопки
+        touchButton.addEventListener('touchstart', handleStartButtonClick, { passive: false });
+
+        touchArea.addEventListener('click', handleTouch); //Для области
+        touchArea.addEventListener('touchstart', handleTouch, { passive: false });
 
         tg.expand();
         tg.ready();
