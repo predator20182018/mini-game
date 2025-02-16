@@ -3,44 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Мини-игра 🎮</title>
+    <title>Счетчик касаний</title>
     <style>
         body, html {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
-            overflow: hidden;
+            overflow: hidden; /* Скрываем прокрутку, если появится */
             background-color: #f0f0f0;
             font-family: sans-serif;
+            user-select: none; /* Предотвращаем выделение текста */
         }
-        #grid-container {
+
+        #touch-area {
             width: 100%;
             height: 100%;
-            display: grid;
-            /* Настраиваем количество кнопок */
-            grid-template-columns: repeat(auto-fill, 20px); /* Адаптивно, ширина 20px */
-            grid-template-rows: repeat(auto-fill, 20px);    /* Адаптивно, высота 20px */
-            gap: 0; /* Убираем промежутки */
+            position: relative; /* Для абсолютного позиционирования */
+            display: flex; /* Для центрирования (не обязательно, но полезно) */
             justify-content: center;
-            align-content: center;
+            align-items: center;
         }
-        .grid-button {
-            width: 100%;
-            height: 100%;
-            background-color: #e0e0e0; /* Изначально серый */
-            border: none;
-            padding: 0;
-            margin: 0;
-            box-sizing: border-box;
-            cursor: pointer;
-            transition: background-color 0.1s;
+
+        .touch-indicator {
+            position: absolute; /* Абсолютное позиционирование */
+            width: 50px;
+            height: 50px;
+            background-color: rgba(0, 122, 255, 0.5); /* Полупрозрачный синий */
+            border-radius: 50%; /* Круглая форма */
+            transform: translate(-50%, -50%); /* Центрируем по координатам */
+            pointer-events: none; /* Не реагирует на события мыши */
+            opacity: 0; /* Начальная прозрачность */
+            transition: opacity 0.3s ease, transform 0.2s ease; /* Анимация */
         }
-        .grid-button.my-touch {
-            background-color: blue;
-        }
-        .grid-button.other-touch {
-            background-color: red;
+        .touch-indicator.visible{
+             opacity: 1;
+             transform: translate(-50%, -50%) scale(1.2);
         }
 
         #touch-counter {
@@ -54,78 +52,65 @@
             padding: 5px;
             border-radius: 5px;
         }
-        #message {
-            position: fixed;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 5px 10px;
-            border-radius: 5px;
-            z-index: 1000;
-            display: none; /* Скрыто по умолчанию */
-        }
+
     </style>
 </head>
 <body>
-    <div id="message"></div>
     <div id="touch-counter">Касаний: 0</div>
-    <div id="grid-container"></div>
+    <div id="touch-area"></div>
 
     <script>
-        const tg = window.Telegram.WebApp;
-        const gridContainer = document.getElementById('grid-container');
+        const tg = window.Telegram.WebApp; // Инициализация Telegram WebApp
+        const touchArea = document.getElementById('touch-area');
         const touchCounter = document.getElementById('touch-counter');
-        const messageElement = document.getElementById('message');
 
         let touchCount = 0;
-        let otherUserId = null;
-        let gameStarted = false;
-        let myId = null;
-
-        function showMessage(text, duration = 3000) {
-           messageElement.textContent = text;
-           messageElement.style.display = 'block';
-           setTimeout(() => {
-             messageElement.style.display = 'none';
-           }, duration);
-        }
 
         function updateCounter() {
             touchCounter.textContent = `Касаний: ${touchCount}`;
         }
 
-        function createGrid() {
-            const cellSize = 20;
-            const numCols = Math.floor(window.innerWidth / cellSize);
-            const numRows = Math.floor(window.innerHeight / cellSize);
+        function createTouchIndicator(x, y) {
+            const indicator = document.createElement('div');
+            indicator.classList.add('touch-indicator');
+            indicator.style.left = `${x}px`;
+            indicator.style.top = `${y}px`;
+             // Случайный цвет
+            indicator.style.backgroundColor = `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, 0.5)`;
+            touchArea.appendChild(indicator);
 
-            for (let row = 0; row < numRows; row++) {
-                for (let col = 0; col < numCols; col++) {
-                    const button = document.createElement('button');
-                    button.classList.add('grid-button');
-                    button.dataset.row = row;
-                    button.dataset.col = col;
+              // Добавляем класс для отображения (после добавления в DOM)
+             requestAnimationFrame(() => {
+                indicator.classList.add('visible');
+             });
 
-                    button.addEventListener('click', handleButtonClick);
-                    button.addEventListener('touchstart', handleButtonClick, { passive: false });
-                    gridContainer.appendChild(button);
-                }
-            }
+            // Удаляем индикатор через некоторое время
+            setTimeout(() => {
+               indicator.style.opacity = 0;
+                indicator.addEventListener('transitionend', () => {
+                    indicator.remove();
+                });
+            }, 500); // Индикатор виден 0.5 секунды
         }
 
-        function handleButtonClick(event) {
-           if (!gameStarted) return;
+
+        function handleTouch(event) {
             event.preventDefault();
 
-            const button = event.currentTarget;
+            let x, y;
+            if (event.type === 'touchstart') {
+                if (event.touches.length > 0) {
+                    x = event.touches[0].clientX;
+                    y = event.touches[0].clientY;
+                } else {
+                    return;
+                }
+            } else {
+                x = event.clientX;
+                y = event.clientY;
+            }
 
-            if (button.classList.contains('my-touch') || button.classList.contains('other-touch')) {
-                 return;
-             }
-
-            button.classList.add('my-touch');
+            createTouchIndicator(x, y);
 
             touchCount++;
             updateCounter();
@@ -134,92 +119,38 @@
                 tg.HapticFeedback.impactOccurred('medium');
             }
 
-            const row = parseInt(button.dataset.row);
-            const col = parseInt(button.dataset.col);
-
-            tg.sendData(JSON.stringify({ type: 'touch', row, col, otherUserId }));
+            tg.sendData(JSON.stringify({ type: 'touch', x, y }));
         }
 
-        let lastTap = 0;
-        gridContainer.addEventListener('touchend', (event) => {
-            const currentTime = new Date().getTime();
-            const tapLength = currentTime - lastTap;
-
-            if (tapLength < 300 && tapLength > 0) {
+        // Добавляем обработчик для сброса счетчика (по двойному клику/тапу)
+         let lastTap = 0;
+        touchArea.addEventListener('touchend', (event) => {
+             const currentTime = new Date().getTime();
+             const tapLength = currentTime - lastTap;
+             if (tapLength < 300 && tapLength > 0) {
                 event.preventDefault();
-                 if (!gameStarted) return;
-                touchCount = 0;
+                touchCount = 0; // Сброс
                 updateCounter();
-                 const myTouches = document.querySelectorAll('.grid-button.my-touch');
-                 myTouches.forEach(button => button.classList.remove('my-touch'));
-                 myTouches.forEach(button => button.style.backgroundColor = '');
-
                 if (tg.HapticFeedback) {
                     tg.HapticFeedback.notificationOccurred('success');
                 }
-            }
-            lastTap = currentTime;
+             }
+             lastTap = currentTime;
         });
 
-          gridContainer.addEventListener('dblclick', (event) => {
-            event.preventDefault();
-            if (!gameStarted) return;
-
+        touchArea.addEventListener('dblclick', () => {
             touchCount = 0;
             updateCounter();
-
-            const myTouches = document.querySelectorAll('.grid-button.my-touch');
-            myTouches.forEach(button => button.classList.remove('my-touch'));
-            myTouches.forEach(button => button.style.backgroundColor = '');
-
-            if (tg.HapticFeedback) {
-                tg.HapticFeedback.notificationOccurred('success');
-            }
-        });
-
-
-        // Сразу отправляем запрос на готовность к игре, как только приложение загрузилось
-        function startGame() {
-             if (!gameStarted) {
-                 tg.sendData(JSON.stringify({ type: 'ready' }));
-                 showMessage("Ищем второго игрока...");
-              }
-        }
-
-        tg.onEvent('web_app_data_received', (event) => {
-            const data = JSON.parse(event);
-
-            if (data.type === 'start') {
-                otherUserId = data.otherUserId;
-                myId = data.myId;
-                gameStarted = true;
-                showMessage("Игра началась!");
-
-            } else if (data.type === 'touch' && data.userId !== myId) {
-                const button = document.querySelector(`.grid-button[data-row="${data.row}"][data-col="${data.col}"]`);
-                if (button && !button.classList.contains('my-touch') && !button.classList.contains('other-touch')) {
-                    button.classList.add('other-touch');
-                    if (tg.HapticFeedback) {
-                        tg.HapticFeedback.impactOccurred('light');
-                     }
+             if (tg.HapticFeedback) {
+                    tg.HapticFeedback.notificationOccurred('success');
                 }
-            } else if (data.type === 'disconnect') {
-                showMessage("Второй игрок отключился.", 5000);
-                gameStarted = false;
-                otherUserId = null;
-                const otherTouches = document.querySelectorAll('.grid-button.other-touch');
-                otherTouches.forEach(button => button.classList.remove('other-touch'));
-                otherTouches.forEach(button => button.style.backgroundColor = '');
-            }
         });
 
-        createGrid();
+        touchArea.addEventListener('click', handleTouch);
+        touchArea.addEventListener('touchstart', handleTouch, { passive: false });
+
         tg.expand();
         tg.ready();
-
-        // Запускаем игру сразу после инициализации
-        startGame();
-
     </script>
 </body>
 </html>
