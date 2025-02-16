@@ -10,7 +10,7 @@
             padding: 0;
             width: 100%;
             height: 100%;
-            overflow: hidden; /* Скрываем прокрутку */
+            overflow: hidden;
             background-color: #f0f0f0;
             font-family: sans-serif;
         }
@@ -22,25 +22,25 @@
             grid-template-columns: repeat(auto-fill, 20px); /* Адаптивно, ширина 20px */
             grid-template-rows: repeat(auto-fill, 20px);    /* Адаптивно, высота 20px */
             gap: 0; /* Убираем промежутки */
-            justify-content: center; /* Центрируем сетку */
-            align-content: center;  /* Центрируем сетку */
+            justify-content: center;
+            align-content: center;
         }
         .grid-button {
-            width: 100%;  /* Занимает всю ячейку */
+            width: 100%;
             height: 100%;
             background-color: #e0e0e0; /* Изначально серый */
-            border: none; /* Без рамки */
-            padding: 0; /* Без отступов */
-            margin: 0;  /* Без внешних отступов */
-            box-sizing: border-box; /*  */
+            border: none;
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
             cursor: pointer;
-            transition: background-color 0.1s; /* Плавная смена цвета */
+            transition: background-color 0.1s;
         }
         .grid-button.my-touch {
-            background-color: blue; /* Синий для своих касаний */
+            background-color: blue;
         }
         .grid-button.other-touch {
-            background-color: red;  /* Красный для чужих касаний */
+            background-color: red;
         }
 
         #touch-counter {
@@ -84,7 +84,6 @@
         let gameStarted = false;
         let myId = null;
 
-        // Вспомогательная функция показа сообщения
         function showMessage(text, duration = 3000) {
            messageElement.textContent = text;
            messageElement.style.display = 'block';
@@ -93,14 +92,12 @@
            }, duration);
         }
 
-        // Обновление счетчика
         function updateCounter() {
             touchCounter.textContent = `Касаний: ${touchCount}`;
         }
 
-        // Функция для создания сетки кнопок
         function createGrid() {
-            const cellSize = 20; // Размер ячейки
+            const cellSize = 20;
             const numCols = Math.floor(window.innerWidth / cellSize);
             const numRows = Math.floor(window.innerHeight / cellSize);
 
@@ -108,8 +105,8 @@
                 for (let col = 0; col < numCols; col++) {
                     const button = document.createElement('button');
                     button.classList.add('grid-button');
-                    button.dataset.row = row; // Сохраняем строку
-                    button.dataset.col = col; // Сохраняем столбец
+                    button.dataset.row = row;
+                    button.dataset.col = col;
 
                     button.addEventListener('click', handleButtonClick);
                     button.addEventListener('touchstart', handleButtonClick, { passive: false });
@@ -118,37 +115,31 @@
             }
         }
 
-
-        // Обработчик нажатия на кнопку
         function handleButtonClick(event) {
            if (!gameStarted) return;
             event.preventDefault();
 
-            const button = event.currentTarget; // Получаем кнопку, на которую нажали
+            const button = event.currentTarget;
 
-              // Проверяем, не нажат ли уже этот квадратик
             if (button.classList.contains('my-touch') || button.classList.contains('other-touch')) {
-                 return; // Ничего не делаем
+                 return;
              }
 
-            button.classList.add('my-touch'); // Добавляем класс "my-touch"
+            button.classList.add('my-touch');
 
-            // Увеличиваем счетчик
             touchCount++;
             updateCounter();
 
             if (tg.HapticFeedback) {
                 tg.HapticFeedback.impactOccurred('medium');
             }
-          // Получаем строку и столбец из data-атрибутов
+
             const row = parseInt(button.dataset.row);
             const col = parseInt(button.dataset.col);
-
 
             tg.sendData(JSON.stringify({ type: 'touch', row, col, otherUserId }));
         }
 
-         // Добавляем обработчик для сброса счетчика (по двойному клику/тапу)
         let lastTap = 0;
         gridContainer.addEventListener('touchend', (event) => {
             const currentTime = new Date().getTime();
@@ -157,14 +148,11 @@
             if (tapLength < 300 && tapLength > 0) {
                 event.preventDefault();
                  if (!gameStarted) return;
-
-                // Сбрасываем счетчик и очищаем поле (только свои касания)
                 touchCount = 0;
                 updateCounter();
                  const myTouches = document.querySelectorAll('.grid-button.my-touch');
                  myTouches.forEach(button => button.classList.remove('my-touch'));
-                 myTouches.forEach(button => button.style.backgroundColor = ''); // Возвращаем исходный цвет
-
+                 myTouches.forEach(button => button.style.backgroundColor = '');
 
                 if (tg.HapticFeedback) {
                     tg.HapticFeedback.notificationOccurred('success');
@@ -189,61 +177,49 @@
             }
         });
 
-        // Обработка данных от бота
-         tg.onEvent('mainButtonClicked', () => {  //Имитация кнопки, которой нет
-           if (!gameStarted) {
-               tg.sendData(JSON.stringify({ type: 'ready' })); // Сообщаем боту о готовности
-               showMessage("Ищем второго игрока...")
-            }
-         });
 
-        if (tg.MainButton) {
-             tg.MainButton.text = "Начать игру";
-             tg.MainButton.show();
-         } else { //Имитация
-             tg.onEvent('viewportChanged', () => {  // Имитация, если кнопки нет
-                if (!gameStarted) {
-                  tg.sendData(JSON.stringify({ type: 'ready' }));
-                  showMessage("Ищем второго игрока...");
-                }
-            });
-         }
+        // Сразу отправляем запрос на готовность к игре, как только приложение загрузилось
+        function startGame() {
+             if (!gameStarted) {
+                 tg.sendData(JSON.stringify({ type: 'ready' }));
+                 showMessage("Ищем второго игрока...");
+              }
+        }
 
         tg.onEvent('web_app_data_received', (event) => {
             const data = JSON.parse(event);
 
             if (data.type === 'start') {
                 otherUserId = data.otherUserId;
-                myId = data.myId; // Получаем свой ID
+                myId = data.myId;
                 gameStarted = true;
                 showMessage("Игра началась!");
 
             } else if (data.type === 'touch' && data.userId !== myId) {
-               // Находим кнопку по координатам и применяем стиль
                 const button = document.querySelector(`.grid-button[data-row="${data.row}"][data-col="${data.col}"]`);
-                if (button && !button.classList.contains('my-touch') && !button.classList.contains('other-touch')) { //Проверяем, нажат ли был уже этот квадратик
+                if (button && !button.classList.contains('my-touch') && !button.classList.contains('other-touch')) {
                     button.classList.add('other-touch');
                     if (tg.HapticFeedback) {
-                        tg.HapticFeedback.impactOccurred('light'); // Легкая вибрация
+                        tg.HapticFeedback.impactOccurred('light');
                      }
                 }
             } else if (data.type === 'disconnect') {
                 showMessage("Второй игрок отключился.", 5000);
                 gameStarted = false;
                 otherUserId = null;
-
-                //Очищаем поле от чужих нажатий
                 const otherTouches = document.querySelectorAll('.grid-button.other-touch');
-                otherTouches.forEach(button => button.classList.remove('other-touch')); //Убираем класс
-                otherTouches.forEach(button => button.style.backgroundColor = ''); //возвращаем изначальный цвет
-
+                otherTouches.forEach(button => button.classList.remove('other-touch'));
+                otherTouches.forEach(button => button.style.backgroundColor = '');
             }
         });
 
-        // Создаем сетку при загрузке страницы
         createGrid();
         tg.expand();
         tg.ready();
+
+        // Запускаем игру сразу после инициализации
+        startGame();
+
     </script>
 </body>
 </html>
