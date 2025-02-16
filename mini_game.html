@@ -14,44 +14,39 @@
             background-color: #f0f0f0;
             font-family: sans-serif;
         }
-        #touch-area {
+        #touch-area { /* Этот div теперь служит контейнером */
             width: 100%;
             height: 100%;
-            background-color: #e0e0e0;
-            position: relative; /* Важно для позиционирования точек */
+            position: relative; /* Важно для позиционирования */
             display: flex;
             justify-content: center;
             align-items: center;
+        }
+        #touch-button { /* Стиль для кнопки */
+            width: 80%;  /* Ширина кнопки */
+            height: 80%; /* Высота кнопки */
+            background-color: #4CAF50; /* Зеленый цвет */
+            color: white;
             font-size: 24px;
-            color: #333;
-            user-select: none;
-        }
-        .touch-point {
-            position: absolute;
-            width: 50px; /* Размер квадратика */
-            height: 50px;
-            background-color: rgba(0, 122, 255, 0.5); /* Полупрозрачный синий */
+            border: none;
             border-radius: 10px;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.3s ease, transform 0.2s ease; /* Плавное исчезновение и увеличение */
+            cursor: pointer; /* Курсор-указатель */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            user-select: none;  /* Запрещаем выделение */
         }
-
-        /* Класс для точек, которые уже добавлены */
-        .touch-point.visible{
-            opacity: 1;
-            transform: translate(-50%, -50%) scale(1.2); /* Немного увеличиваем при появлении */
+        #touch-button:active {
+            background-color: #367c39; /* Темно-зеленый при нажатии */
         }
-
         /* Счетчик касаний */
         #touch-counter {
-            position: fixed; /* Фиксированное положение */
+            position: fixed;
             top: 10px;
             left: 10px;
             color: white;
             font-size: 20px;
-            z-index: 1000; /* Поверх всего */
+            z-index: 1000;
             background-color: rgba(0, 0, 0, 0.5);
             padding: 5px;
             border-radius: 5px;
@@ -62,7 +57,7 @@
 <body>
     <div id="touch-counter">Касаний: 0</div>
     <div id="touch-area">
-        Касайтесь экрана!
+        <button id="touch-button">Нажми меня!</button>
     </div>
 
     <script>
@@ -70,99 +65,63 @@
         const tg = window.Telegram.WebApp;
 
         // Получаем элементы
-        const touchArea = document.getElementById('touch-area');
+        const touchButton = document.getElementById('touch-button');
         const touchCounter = document.getElementById('touch-counter');
 
         // Счетчик касаний
         let touchCount = 0;
-
-        // Функция для создания точки касания (квадратика)
-        function createTouchPoint(x, y) {
-            const point = document.createElement('div');
-            point.classList.add('touch-point');
-            point.style.left = `${x}px`;
-            point.style.top = `${y}px`;
-             // Случайный цвет
-            point.style.backgroundColor = `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, 0.5)`;
-            touchArea.appendChild(point);
-
-
-             // Добавляем класс для отображения (после добавления в DOM)
-             requestAnimationFrame(() => {
-                point.classList.add('visible');
-             });
-
-            // Удаляем точку через некоторое время
-            setTimeout(() => {
-                 point.style.opacity = '0'; // плавное исчезновение
-                point.addEventListener('transitionend', () => point.remove()); //Удаляем, как только исчезнет
-            }, 500); // Квадратик виден 0.5 секунды
-
-        }
 
         // Обновление счетчика
         function updateCounter() {
             touchCounter.textContent = `Касаний: ${touchCount}`;
         }
 
-
-        // Обработчик касаний
-        function handleTouch(event) {
+        // Обработчик нажатия на кнопку
+        function handleButtonClick(event) {
             event.preventDefault();
-
-            let x, y;
-            if (event.type === 'touchstart') {
-                if (event.touches.length > 0) {
-                    x = event.touches[0].clientX;
-                    y = event.touches[0].clientY;
-                } else {
-                    return;
-                }
-            } else {
-                x = event.clientX;
-                y = event.clientY;
-            }
-
-            createTouchPoint(x, y);
 
             // Увеличиваем счетчик
             touchCount++;
             updateCounter();
 
+            // Вибрация
             if (tg.HapticFeedback) {
                 tg.HapticFeedback.impactOccurred('medium');
             }
 
-            tg.sendData(JSON.stringify({ type: 'touch', x, y }));
+            // Отправляем данные боту
+            tg.sendData(JSON.stringify({ type: 'button_press' })); //Другой тип
         }
 
-        // Добавляем обработчик для сброса счетчика (по двойному клику/тапу)
+          // Добавляем обработчик для сброса счетчика (по двойному клику/тапу)
         let lastTap = 0;
-        touchArea.addEventListener('touchend', (event) => { //Используем touchend
-             const currentTime = new Date().getTime();
-             const tapLength = currentTime - lastTap;
-             if (tapLength < 300 && tapLength > 0) {  //Если меньше 300мс, то двойной тап
+        touchButton.addEventListener('touchend', (event) => {
+            const currentTime = new Date().getTime();
+            const tapLength = currentTime - lastTap;
+            if (tapLength < 300 && tapLength > 0) {
                 event.preventDefault();
-                touchCount = 0; // Сброс
+                touchCount = 0;
                 updateCounter();
-                if (tg.HapticFeedback) { //вибрация
-                    tg.HapticFeedback.notificationOccurred('success'); //Success вибрация
+
+                if (tg.HapticFeedback) {
+                    tg.HapticFeedback.notificationOccurred('success');
                 }
-             }
-             lastTap = currentTime; //Обновляем время
+            }
+            lastTap = currentTime;
         });
 
-        touchArea.addEventListener('dblclick', () => { //Для ПК
+        touchButton.addEventListener('dblclick', () => {
             touchCount = 0;
             updateCounter();
-             if (tg.HapticFeedback) {
+            if (tg.HapticFeedback) {
                     tg.HapticFeedback.notificationOccurred('success');
                 }
         });
 
-        // Вешаем обработчики событий
-        touchArea.addEventListener('click', handleTouch);
-        touchArea.addEventListener('touchstart', handleTouch, { passive: false });
+        // Вешаем обработчики событий *на кнопку*
+        touchButton.addEventListener('click', handleButtonClick);
+        touchButton.addEventListener('touchstart', handleButtonClick, { passive: false });
+
 
         tg.expand();
         tg.ready();
