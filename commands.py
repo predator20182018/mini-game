@@ -32,16 +32,16 @@ running = True
 
 async def send_days_together_message(user_id: int):
     """Редактирует/отправляет сообщение 'Дней вместе'."""
-    if get_partner_id(user_id) is None:
-        return
-
-    today = datetime.datetime.now(moscow_tz).date()
-    days_diff = (today - start_date).days
-    message_text = f"💖 Мы вместе уже {days_diff} дней! 💖"
-
-    message_id = user_message_ids.get(user_id)
-
     try:
+        if get_partner_id(user_id) is None:  # Проверяем, что соединение установлено
+            return
+
+        today = datetime.datetime.now(moscow_tz).date()
+        days_diff = (today - start_date).days
+        message_text = f"💖 Мы вместе уже {days_diff} дней! 💖"
+
+        message_id = user_message_ids.get(user_id)
+
         if message_id:
             await bot.edit_message_text(chat_id=user_id, message_id=message_id, text=message_text)
         else:
@@ -284,7 +284,6 @@ async def confirm_connection(callback_query: CallbackQuery, state: FSMContext) -
     user_id = callback_query.from_user.id
     partner_id = int(callback_query.data.split(":")[1])
 
-
     if get_partner_id(user_id) is not None:
         await callback_query.answer("Вы уже соединены с партнером.", show_alert=True)
         return
@@ -301,13 +300,14 @@ async def confirm_connection(callback_query: CallbackQuery, state: FSMContext) -
         await bot.send_message(user_id, "Соединение установлено!")
         await bot.send_message(partner_id, "Соединение установлено!")
 
+        # Отправляем сообщение с количеством дней вместе обоим пользователям
+        await send_days_together_message(user_id)
+        await send_days_together_message(partner_id)
 
         # Обновляем клавиатуру для обоих пользователей
         main_keyboard = get_main_keyboard()
         await bot.send_message(user_id, "Выберите действие:", reply_markup=main_keyboard)
         await bot.send_message(partner_id, "Выберите действие:", reply_markup=main_keyboard)
-
-
 
     except KeyError as e:
         print(f"KeyError in confirm_connection: {e}")
