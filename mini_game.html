@@ -10,53 +10,39 @@
             padding: 0;
             width: 100%;
             height: 100%;
-            overflow: hidden;
+            overflow: hidden; /* Скрываем прокрутку */
             background-color: #f0f0f0;
             font-family: sans-serif;
         }
-        #touch-area {
+        #grid-container {
             width: 100%;
             height: 100%;
-            position: relative; /* Важно для позиционирования */
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            display: grid;
+            /* Настраиваем количество кнопок */
+            grid-template-columns: repeat(auto-fill, 20px); /* Адаптивно, ширина 20px */
+            grid-template-rows: repeat(auto-fill, 20px);    /* Адаптивно, высота 20px */
+            gap: 0; /* Убираем промежутки */
+            justify-content: center; /* Центрируем сетку */
+            align-content: center;  /* Центрируем сетку */
         }
-       #touch-button {
-            width: 80%;
-            height: 50px; /* Высота кнопки */
-            background-color: #4CAF50;
-            color: white;
-            font-size: 20px;
-            border: none;
-            border-radius: 10px;
+        .grid-button {
+            width: 100%;  /* Занимает всю ячейку */
+            height: 100%;
+            background-color: #e0e0e0; /* Изначально серый */
+            border: none; /* Без рамки */
+            padding: 0; /* Без отступов */
+            margin: 0;  /* Без внешних отступов */
+            box-sizing: border-box; /*  */
             cursor: pointer;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            user-select: none;
-            margin-bottom: 20px; /* Отступ снизу */
+            transition: background-color 0.1s; /* Плавная смена цвета */
         }
-        #touch-button:active {
-            background-color: #367c39;
+        .grid-button.my-touch {
+            background-color: blue; /* Синий для своих касаний */
         }
-        .touch-point {
-            position: absolute;
-            width: 50px; /* Размер квадратика */
-            height: 50px;
-            background-color: rgba(0, 122, 255, 0.5);
-            border-radius: 10px;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.3s ease, transform 0.2s ease;
-        }
-        .touch-point.visible {
-            opacity: 1;
-            transform: translate(-50%, -50%) scale(1.2);
+        .grid-button.other-touch {
+            background-color: red;  /* Красный для чужих касаний */
         }
 
-        /* Счетчик касаний */
         #touch-counter {
             position: fixed;
             top: 10px;
@@ -68,47 +54,43 @@
             padding: 5px;
             border-radius: 5px;
         }
-
+        #message {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            z-index: 1000;
+            display: none; /* Скрыто по умолчанию */
+        }
     </style>
 </head>
 <body>
+    <div id="message"></div>
     <div id="touch-counter">Касаний: 0</div>
-    <div id="touch-area">
-         <button id="touch-button">Начать игру</button>
-    </div>
+    <div id="grid-container"></div>
 
     <script>
-        // Инициализация Telegram Web App
         const tg = window.Telegram.WebApp;
-
-        // Получаем элементы
-        const touchArea = document.getElementById('touch-area');
-        const touchButton = document.getElementById('touch-button');
+        const gridContainer = document.getElementById('grid-container');
         const touchCounter = document.getElementById('touch-counter');
+        const messageElement = document.getElementById('message');
 
-        // Счетчик касаний
         let touchCount = 0;
-        let gameStarted = false; // Флаг, началась ли игра
+        let otherUserId = null;
+        let gameStarted = false;
+        let myId = null;
 
-
-        // Функция для создания точки касания (квадратика)
-        function createTouchPoint(x, y) {
-            const point = document.createElement('div');
-            point.classList.add('touch-point');
-            point.style.left = `${x}px`;
-            point.style.top = `${y}px`;
-            // Случайный цвет
-            point.style.backgroundColor = `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, 0.5)`;
-            touchArea.appendChild(point);
-
-            requestAnimationFrame(() => {
-                point.classList.add('visible');
-            });
-
-            setTimeout(() => {
-                point.style.opacity = '0';
-                point.addEventListener('transitionend', () => point.remove());
-            }, 500);
+        // Вспомогательная функция показа сообщения
+        function showMessage(text, duration = 3000) {
+           messageElement.textContent = text;
+           messageElement.style.display = 'block';
+           setTimeout(() => {
+             messageElement.style.display = 'none';
+           }, duration);
         }
 
         // Обновление счетчика
@@ -116,37 +98,40 @@
             touchCounter.textContent = `Касаний: ${touchCount}`;
         }
 
-       // Обработчик нажатия на кнопку (для старта игры)
-        function handleStartButtonClick(event) {
-            event.preventDefault();
-            gameStarted = true; // Устанавливаем флаг
-            touchButton.style.display = 'none'; // Скрываем кнопку
-            touchArea.style.backgroundColor = '#e0e0e0'; // Возвращаем фон
-            if(tg.HapticFeedback){
-              tg.HapticFeedback.impactOccurred('light');
+        // Функция для создания сетки кнопок
+        function createGrid() {
+            const cellSize = 20; // Размер ячейки
+            const numCols = Math.floor(window.innerWidth / cellSize);
+            const numRows = Math.floor(window.innerHeight / cellSize);
+
+            for (let row = 0; row < numRows; row++) {
+                for (let col = 0; col < numCols; col++) {
+                    const button = document.createElement('button');
+                    button.classList.add('grid-button');
+                    button.dataset.row = row; // Сохраняем строку
+                    button.dataset.col = col; // Сохраняем столбец
+
+                    button.addEventListener('click', handleButtonClick);
+                    button.addEventListener('touchstart', handleButtonClick, { passive: false });
+                    gridContainer.appendChild(button);
+                }
             }
         }
 
-        // Обработчик касаний (для создания квадратиков)
-        function handleTouch(event) {
-          if(!gameStarted) return; // Не обрабатываем касания, если игра не началась
 
+        // Обработчик нажатия на кнопку
+        function handleButtonClick(event) {
+           if (!gameStarted) return;
             event.preventDefault();
 
-            let x, y;
-            if (event.type === 'touchstart') {
-                if (event.touches.length > 0) {
-                    x = event.touches[0].clientX;
-                    y = event.touches[0].clientY;
-                } else {
-                    return;
-                }
-            } else {
-                x = event.clientX;
-                y = event.clientY;
-            }
+            const button = event.currentTarget; // Получаем кнопку, на которую нажали
 
-            createTouchPoint(x, y);
+              // Проверяем, не нажат ли уже этот квадратик
+            if (button.classList.contains('my-touch') || button.classList.contains('other-touch')) {
+                 return; // Ничего не делаем
+             }
+
+            button.classList.add('my-touch'); // Добавляем класс "my-touch"
 
             // Увеличиваем счетчик
             touchCount++;
@@ -155,20 +140,32 @@
             if (tg.HapticFeedback) {
                 tg.HapticFeedback.impactOccurred('medium');
             }
+          // Получаем строку и столбец из data-атрибутов
+            const row = parseInt(button.dataset.row);
+            const col = parseInt(button.dataset.col);
 
-            tg.sendData(JSON.stringify({ type: 'touch', x, y }));
+
+            tg.sendData(JSON.stringify({ type: 'touch', row, col, otherUserId }));
         }
 
-        // Добавляем обработчик для сброса счетчика (по двойному клику/тапу)
+         // Добавляем обработчик для сброса счетчика (по двойному клику/тапу)
         let lastTap = 0;
-        touchArea.addEventListener('touchend', (event) => { //Сбрасываем по двойному тапу на области
-            if (!gameStarted) return; //только если игра началась
+        gridContainer.addEventListener('touchend', (event) => {
             const currentTime = new Date().getTime();
             const tapLength = currentTime - lastTap;
+
             if (tapLength < 300 && tapLength > 0) {
                 event.preventDefault();
+                 if (!gameStarted) return;
+
+                // Сбрасываем счетчик и очищаем поле (только свои касания)
                 touchCount = 0;
                 updateCounter();
+                 const myTouches = document.querySelectorAll('.grid-button.my-touch');
+                 myTouches.forEach(button => button.classList.remove('my-touch'));
+                 myTouches.forEach(button => button.style.backgroundColor = ''); // Возвращаем исходный цвет
+
+
                 if (tg.HapticFeedback) {
                     tg.HapticFeedback.notificationOccurred('success');
                 }
@@ -176,23 +173,75 @@
             lastTap = currentTime;
         });
 
-        touchArea.addEventListener('dblclick', () => {  //И на пк
-           if (!gameStarted) return;
+          gridContainer.addEventListener('dblclick', (event) => {
+            event.preventDefault();
+            if (!gameStarted) return;
+
             touchCount = 0;
             updateCounter();
+
+            const myTouches = document.querySelectorAll('.grid-button.my-touch');
+            myTouches.forEach(button => button.classList.remove('my-touch'));
+            myTouches.forEach(button => button.style.backgroundColor = '');
+
             if (tg.HapticFeedback) {
-                    tg.HapticFeedback.notificationOccurred('success');
-                }
+                tg.HapticFeedback.notificationOccurred('success');
+            }
         });
 
+        // Обработка данных от бота
+         tg.onEvent('mainButtonClicked', () => {  //Имитация кнопки, которой нет
+           if (!gameStarted) {
+               tg.sendData(JSON.stringify({ type: 'ready' })); // Сообщаем боту о готовности
+               showMessage("Ищем второго игрока...")
+            }
+         });
 
-        // Вешаем обработчики событий
-        touchButton.addEventListener('click', handleStartButtonClick); //Для кнопки
-        touchButton.addEventListener('touchstart', handleStartButtonClick, { passive: false });
+        if (tg.MainButton) {
+             tg.MainButton.text = "Начать игру";
+             tg.MainButton.show();
+         } else { //Имитация
+             tg.onEvent('viewportChanged', () => {  // Имитация, если кнопки нет
+                if (!gameStarted) {
+                  tg.sendData(JSON.stringify({ type: 'ready' }));
+                  showMessage("Ищем второго игрока...");
+                }
+            });
+         }
 
-        touchArea.addEventListener('click', handleTouch); //Для области
-        touchArea.addEventListener('touchstart', handleTouch, { passive: false });
+        tg.onEvent('web_app_data_received', (event) => {
+            const data = JSON.parse(event);
 
+            if (data.type === 'start') {
+                otherUserId = data.otherUserId;
+                myId = data.myId; // Получаем свой ID
+                gameStarted = true;
+                showMessage("Игра началась!");
+
+            } else if (data.type === 'touch' && data.userId !== myId) {
+               // Находим кнопку по координатам и применяем стиль
+                const button = document.querySelector(`.grid-button[data-row="${data.row}"][data-col="${data.col}"]`);
+                if (button && !button.classList.contains('my-touch') && !button.classList.contains('other-touch')) { //Проверяем, нажат ли был уже этот квадратик
+                    button.classList.add('other-touch');
+                    if (tg.HapticFeedback) {
+                        tg.HapticFeedback.impactOccurred('light'); // Легкая вибрация
+                     }
+                }
+            } else if (data.type === 'disconnect') {
+                showMessage("Второй игрок отключился.", 5000);
+                gameStarted = false;
+                otherUserId = null;
+
+                //Очищаем поле от чужих нажатий
+                const otherTouches = document.querySelectorAll('.grid-button.other-touch');
+                otherTouches.forEach(button => button.classList.remove('other-touch')); //Убираем класс
+                otherTouches.forEach(button => button.style.backgroundColor = ''); //возвращаем изначальный цвет
+
+            }
+        });
+
+        // Создаем сетку при загрузке страницы
+        createGrid();
         tg.expand();
         tg.ready();
     </script>
