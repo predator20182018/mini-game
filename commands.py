@@ -27,7 +27,8 @@ pending_requests = {} # {user_id: requester_id}
 
 # Глобальные переменные
 running = True
-polling_stopped = False
+# polling_stopped = False  #  Убрали, достаточно running
+
 
 async def send_days_together_message(user_id: int):
     """Редактирует/отправляет сообщение 'Дней вместе'."""
@@ -50,6 +51,7 @@ async def send_days_together_message(user_id: int):
             await bot.pin_chat_message(chat_id=user_id, message_id=message_id)
     except Exception as e:
         print(f"Ошибка в send_days_together_message для {user_id}: {e}")
+
 
 async def start(message: Message, state: FSMContext):
     """Логика команды /start."""
@@ -76,18 +78,20 @@ async def start(message: Message, state: FSMContext):
     else:
         print(f"Нет username у {message.from_user.first_name}, chat_id={chat_id}")
 
+
 async def stop_polling(message: Message):
     """Логика остановки polling (для администратора)."""
-    global running, polling_stopped
+    global running #, polling_stopped  # Убрали polling_stopped
     running = False
-    polling_stopped = True
+    # polling_stopped = True
     await bot.close()
     await message.answer("Бот остановлен (перестал принимать сообщения).")
     print("Бот остановлен командой /stop_polling")
 
+
 async def stop(message: Message):
     """Логика остановки бота"""
-    global running, polling_stopped
+    global running #, polling_stopped  # Убрали polling_stopped
     admin_id = get_admin_id()
 
     if admin_id is None:
@@ -95,13 +99,14 @@ async def stop(message: Message):
         return
     if message.from_user.id == admin_id:
         running = False
-        polling_stopped = True
+        # polling_stopped = True
         await bot.close()
         await message.answer("Бот остановлен")
         print("Бот остановлен")
         sys.exit()
     else:
         await message.answer("У вас нет прав")
+
 
 async def help_command(message: Message):
     """Логика команды /help."""
@@ -123,6 +128,7 @@ async def help_command(message: Message):
     )
     await message.answer(help_text)
 
+
 async def why_love(message: Message):
     user_id = message.from_user.id
     if get_partner_id(user_id) is None:
@@ -142,6 +148,7 @@ async def why_love(message: Message):
     except Exception as e:
         await message.answer(f"Ошибка при чтении 'Причины.txt': {e}")
 
+
 async def pleasantness(message: Message):
     user_id = message.from_user.id
     if get_partner_id(user_id) is None:
@@ -159,6 +166,7 @@ async def pleasantness(message: Message):
     except Exception as e:
         await message.answer(f"Ошибка при чтении 'Приятность.txt': {e}")
 
+
 async def kiss(message: Message):
     user_id = message.from_user.id
     partner_id = get_partner_id(user_id)
@@ -174,6 +182,7 @@ async def kiss(message: Message):
     else:
         await message.answer("Вы не соединены с партнером. Используйте '💞 Соединиться с партнером'.")
 
+
 async def status(message: Message):
     keyboard = [
        [InlineKeyboardButton(text="Посмотреть свой статус", callback_data="show_my_status")],
@@ -182,10 +191,12 @@ async def status(message: Message):
     ]
     await message.answer("Выберите действие со статусом:", reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard))
 
+
 async def show_my_status(callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
     status = user_statuses.get(user_id, "Статус не установлен.")
     await callback_query.answer(text=f"Ваш статус: {status}", show_alert=True)
+
 
 async def show_partner_status(callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
@@ -196,10 +207,12 @@ async def show_partner_status(callback_query: CallbackQuery):
     else:
         await callback_query.answer(text="Вы не соединены с партнером.", show_alert=True)
 
+
 async def change_my_status(callback_query: CallbackQuery, state: FSMContext):
     await callback_query.message.answer("Введите новый статус:")
     await state.set_state(Status.waiting_for_status)
     await callback_query.answer()
+
 
 async def set_status(message: Message, state: FSMContext):
     user_id = message.from_user.id
@@ -215,9 +228,11 @@ async def set_status(message: Message, state: FSMContext):
         reply_markup = get_start_keyboard()
         await message.answer("Выберите действие:", reply_markup=reply_markup)
 
+
 async def connect_partner(message: Message, state: FSMContext) -> None:
     await message.answer("Введите ID партнера (число):")
     await state.set_state(Connection.waiting_for_partner_id)
+
 
 async def process_partner_id(message: Message, state: FSMContext) -> None:
     try:
@@ -239,11 +254,10 @@ async def process_partner_id(message: Message, state: FSMContext) -> None:
     if partner_id not in user_data:
         await message.answer("Пользователь с таким ID не найден.")
         return
-
+    await state.update_data(partner_id=partner_id) # Сохраняем
     pending_requests[partner_id] = user_id
-    await state.set_state(Connection.waiting_for_confirmation)
-
     keyboard = create_confirmation_keyboard(user_id)
+
     try:
         await bot.send_message(
             partner_id,
@@ -251,28 +265,29 @@ async def process_partner_id(message: Message, state: FSMContext) -> None:
             reply_markup=keyboard,
         )
         await message.answer(f"Запрос отправлен пользователю с ID {partner_id}.")
+
     except TelegramBadRequest:
         await message.answer(f"Не удалось отправить запрос пользователю {partner_id}.")
-        await state.clear()
         if partner_id in pending_requests:
-            del pending_requests[partner_id]
+            del pending_requests[partner_id]  # Удаляем запрос, если не удалось отправить
+
     except Exception as e:
         print(f"Ошибка в process_partner_id: {e}")
         await message.answer("Произошла ошибка при отправке запроса.")
-        await state.clear()
         if partner_id in pending_requests:
             del pending_requests[partner_id]
-
+    finally:
+        await state.clear()
 
 
 async def confirm_connection(callback_query: CallbackQuery, state: FSMContext) -> None:
     user_id = callback_query.from_user.id
     partner_id = int(callback_query.data.split(":")[1])
 
+
     if get_partner_id(user_id) is not None:
         await callback_query.answer("Вы уже соединены с партнером.", show_alert=True)
         return
-
     try:
         if pending_requests.get(user_id) != partner_id:
             raise KeyError("Несоответствие ID в запросе.")
@@ -286,14 +301,12 @@ async def confirm_connection(callback_query: CallbackQuery, state: FSMContext) -
         await bot.send_message(user_id, "Соединение установлено!")
         await bot.send_message(partner_id, "Соединение установлено!")
 
-        await state.clear()
 
         # Обновляем клавиатуру для обоих пользователей
         main_keyboard = get_main_keyboard()
         await bot.send_message(user_id, "Выберите действие:", reply_markup=main_keyboard)
         await bot.send_message(partner_id, "Выберите действие:", reply_markup=main_keyboard)
-        await send_days_together_message(user_id)  # Выводим "Дни вместе"
-        await send_days_together_message(partner_id)
+
 
 
     except KeyError as e:
@@ -302,6 +315,8 @@ async def confirm_connection(callback_query: CallbackQuery, state: FSMContext) -
     except Exception as e:
         print(f"confirm_connection error: {e}")
         await callback_query.answer("Произошла ошибка.", show_alert=True)
+    finally:
+        await state.clear()
 
 
 async def reject_connection(callback_query: CallbackQuery, state: FSMContext) -> None:
@@ -317,15 +332,14 @@ async def reject_connection(callback_query: CallbackQuery, state: FSMContext) ->
 
     try:
         await bot.send_message(partner_id, "Ваш запрос на соединение был отклонен.")
+        # Обновляем клавиатуру для *отправителя* запроса:
+        await bot.send_message(partner_id, "Выберите действие:", reply_markup=get_start_keyboard())
+
     except TelegramBadRequest:
         print(f"Не удалось уведомить пользователя {partner_id} (заблокировал).")
     except Exception as e:
         print(f"Ошибка при отправке уведомления: {e}")
 
-    await state.clear()
-    if requester:
-        requester_state = FSMContext(bot=bot, storage=bot.storage, user=partner_id, chat=partner_id) # Добавлено
-        await requester_state.set_state(state=None)
 
 async def quit_connection(message: Message, state: FSMContext) -> None:
     """Разрывает соединение между пользователями."""
@@ -345,30 +359,35 @@ async def quit_connection(message: Message, state: FSMContext) -> None:
     await bot.send_message(partner_id, "Ваш партнер разорвал соединение.")
 
     # Очищаем состояния (на всякий случай)
-    await state.clear()
+    await state.clear()  # Очищаем состояние только *текущего* пользователя
 
     # Показываем *стартовую* клавиатуру (с кнопкой "Соединиться") *обоим*
     await message.answer("Выберите действие:", reply_markup=get_start_keyboard())
     await bot.send_message(partner_id, "Выберите действие:", reply_markup=get_start_keyboard())
 
+
 async def pinned_message(message: Message):
     """Обработчик закрепленного сообщения."""
     print("Обрабатываем закрепленное сообщение")
 
+
 async def other_messages(message: Message):
     await message.reply("Не понимаю команду. Используйте /connect")
+
 
 def get_partner_id(user_id: int) -> int | None:
     return connections.get(user_id)
 
+
 async def days_together_job():
-    print("**Выполняется days_together_job**")
-    for user_id in user_data:
+    # print("**Выполняется days_together_job**")  #  Убрали для чистоты вывода
+    for user_id in user_data:  #  Итерируемся по всем user_data (можно по connections)
         try:
             if get_partner_id(user_id) is not None:
                 await send_days_together_message(user_id)
         except Exception as e:
             print(f"Ошибка в days_together_job для chat_id {user_id}: {e}")
+
 
 async def schedule_daily_job():
     global bot, running

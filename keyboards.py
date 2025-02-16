@@ -22,6 +22,6 @@ def get_main_keyboard() -> ReplyKeyboardMarkup:
         [KeyboardButton(text="Приятность")],
         [KeyboardButton(text="💋")],
         [KeyboardButton(text="Статус партнера")],
-        [KeyboardButton(text="Мини-игра 🎮", web_app=WebAppInfo(url="YOUR_WEB_APP_URL"))],  #  Кнопка с WebApp
+        [KeyboardButton(text="Мини-игра 🎮", web_app=WebAppInfo(url="https://predator20182018.github.io/mini-game/mini_game.html"))],  #  Кнопка с WebApp
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
