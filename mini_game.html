@@ -1,137 +1,96 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Счетчик касаний (10 кнопок)</title>
-    <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #f0f0f0;
-            font-family: sans-serif;
-            user-select: none;
-        }
+  <title>Счетчик нажатий (2500 кнопок)</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: sans-serif;
+      background-color: #f0f0f0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
 
-        #button-container {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-wrap: wrap; /* Разрешаем перенос на новую строку */
-            justify-content: center; /* Центрируем по горизонтали */
-            align-items: center;     /* Центрируем по вертикали */
-            gap: 15px; /* Промежуток между кнопками (и строками) */
-        }
+    #counter-container {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 24px;
+      font-weight: bold;
+      z-index: 1;
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 5px 10px;
+      border-radius: 5px;
+    }
 
-        .my-button {
-            width: 60px;   /* Ширина кнопки */
-            height: 60px;  /* Высота кнопки */
-            background-color: red; /* Красный цвет */
-            color: white;       /* Белый цвет текста (если нужен) */
-            border: none;
-            border-radius: 10px; /* Скругленные углы */
-            cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.2s, transform 0.1s; /* Анимации */
-             display: flex; /*Центрируем содержимое (если нужен текст)*/
-            justify-content: center;
-            align-items: center;
-        }
+    #button-container {
+      display: grid;
+      grid-template-columns: repeat(50, 20px); /* 50 колонок */
+      grid-template-rows: repeat(50, 20px);    /* 50 строк */
+      gap: 1px; /* Минимальный зазор */
+      width: fit-content;
+      height: fit-content;
+    }
 
-        .my-button:active {
-            background-color: #cc0000; /* Темно-красный при нажатии */
-            transform: scale(0.95);   /* Немного уменьшаем при нажатии */
-        }
-        /* Счетчик */
-          #touch-counter {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            color: white;
-            font-size: 20px;
-            z-index: 1000;
-            background-color: rgba(0, 0, 0, 0.5);
-            padding: 5px;
-            border-radius: 5px;
-        }
+    button {
+      width: 20px; /* Уменьшаем размер */
+      height: 20px;
+      border: none;
+      background-color: #3498db;
+      cursor: pointer;
+      transition: transform 0.1s, background-color 0.2s;
+    }
 
+    button:hover {
+      background-color: #2980b9;
+    }
 
-    </style>
+    button:active {
+      background-color: #1f618d;
+      transform: scale(0.95);
+    }
+  </style>
 </head>
 <body>
-    <div id="touch-counter">Касаний: 0</div>
-    <div id="button-container">
-        </div>
 
-    <script>
-        const tg = window.Telegram.WebApp;
-        const buttonContainer = document.getElementById('button-container');
-        const touchCounter = document.getElementById('touch-counter');
+  <div id="counter-container">
+    Счетчик: <span id="counter">0</span>
+  </div>
 
-        let touchCount = 0;
+  <div id="button-container">
+    <!-- Кнопки создаются в JavaScript -->
+  </div>
 
-        function updateCounter() {
-            touchCounter.textContent = `Касаний: ${touchCount}`;
-        }
+  <script>
+    let counter = 0;
+    const counterDisplay = document.getElementById('counter');
+    const buttonContainer = document.getElementById('button-container');
+    const buttonCount = 2500;
 
-        // Создание 10 кнопок
-        function createButtons() {
-            for (let i = 0; i < 10; i++) {
-                const button = document.createElement('button');
-                button.classList.add('my-button');
-                // button.textContent = `${i + 1}`; // Можно добавить номера, если нужно
-                button.addEventListener('click', handleButtonClick);
-                 button.addEventListener('touchstart', handleButtonClick, { passive: false });
-                buttonContainer.appendChild(button);
-            }
-        }
+    function updateCounter() {
+      counterDisplay.textContent = counter;
+    }
 
-        function handleButtonClick(event) {
-            event.preventDefault();
+    function createButtons() {
+      for (let i = 0; i < buttonCount; i++) {
+        const button = document.createElement('button');
+        buttonContainer.appendChild(button);
+      }
 
-            touchCount++;
-            updateCounter();
-
-            if (tg.HapticFeedback) {
-                tg.HapticFeedback.impactOccurred('medium');
-            }
-             // event.currentTarget - кнопка, на которую нажали
-            tg.sendData(JSON.stringify({ type: 'button_press', buttonIndex: Array.from(buttonContainer.children).indexOf(event.currentTarget) }));
-        }
-
-          // Сброс счетчика (по двойному тапу/клику на контейнере кнопок)
-        let lastTap = 0;
-        buttonContainer.addEventListener('touchend', (event) => {
-            const currentTime = new Date().getTime();
-            const tapLength = currentTime - lastTap;
-            if (tapLength < 300 && tapLength > 0) {
-                event.preventDefault();
-                touchCount = 0;
-                updateCounter();
-                if(tg.HapticFeedback) {
-                    tg.HapticFeedback.notificationOccurred('success');
-                }
-            }
-            lastTap = currentTime;
+       // Делегирование событий
+        buttonContainer.addEventListener('click', (event) => {
+           if(event.target.tagName === "BUTTON") {
+              counter++;
+              updateCounter();
+           }
         });
+    }
 
-         buttonContainer.addEventListener('dblclick', (event) => {
-            event.preventDefault();
-            touchCount = 0;
-            updateCounter();
-            if(tg.HapticFeedback) {
-                tg.HapticFeedback.notificationOccurred('success');
-            }
-        });
+    createButtons();
+  </script>
 
-
-        createButtons(); // Создаем кнопки
-
-        tg.expand();
-        tg.ready();
-    </script>
 </body>
 </html>
