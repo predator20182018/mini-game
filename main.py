@@ -2,7 +2,6 @@ import asyncio
 import os
 import json
 import time
-import threading
 
 from aiohttp import web
 
